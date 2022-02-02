@@ -3,3 +3,5 @@
 //   cek spesifikasi untuk informasi lebih lanjut
 
 // TODO : Tambahkan kode C kernel
+
+#include "header/kernel.h"
