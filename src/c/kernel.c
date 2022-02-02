@@ -1,0 +1,18 @@
+int main() {
+    putInMemory(0xB000, 0x8000, 'H');
+    putInMemory(0xB000, 0x8002, 'E');
+    putInMemory(0xB000, 0x8004, 'H');
+    putInMemory(0xB000, 0x8006, 'E');
+
+    putInMemory(0xB000, 0x8001, 0xD);
+    putInMemory(0xB000, 0x8003, 0xD);
+    putInMemory(0xB000, 0x8005, 0xD);
+    putInMemory(0xB000, 0x8007, 0xD);
+
+
+    while (1);
+}
+
+void handleInterrupt21(int AX, int BX, int CX, int DX) {
+
+}
