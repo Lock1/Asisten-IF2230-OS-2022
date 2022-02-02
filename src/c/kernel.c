@@ -1,8 +1,17 @@
 #include "header/kernel.h"
+#include "header/filesystem.h"
+#include "header/std_datatype.h"
 
 int main() {
     makeInterrupt21();
     clearScreen();
+
+    // if (sizeof(struct node_filesystem) == 1024)
+    //     printString("nodes ok");
+    // if (sizeof(struct sector_filesystem) == 512)
+    //     printString("sectorfs ok");
+    // if (sizeof(struct node_entry) == 16)
+    //     printString("node_entry ok");
 
     while (1);
 }
@@ -40,7 +49,7 @@ void readString(char *string) {
     // Ulangi pembacaan hingga ditemukan karakter '\r' atau carriage return
     // Tombol enter menghasilkan '\r' dari pembacaan INT 16h
     do {
-        singleCharBuffer = interrupt(0x16, 0x0000, 0, 0, 0);
+        singleCharBuffer = (char) interrupt(0x16, 0x0000, 0, 0, 0);
 
         if (singleCharBuffer != '\r') {
             // Menuliskan karakter ke layar
@@ -70,3 +79,54 @@ void handleInterrupt21(int AX, int BX, int CX, int DX) {
             printString("Invalid Interrupt");
     }
 }
+
+
+
+// DEBUG
+// int div(int a, int b) {
+//     return a/b;
+// }
+//
+// int mod(int a, int n) {
+//     return a - n*(a/n);
+// }
+//
+// int strlen(char *string) {
+//     int i = 0;
+//     while (string[i] != '\0')
+//         i++;
+//     return i;
+// }
+//
+// void strrev(char *string) {
+//     int i = 0, length = strlen(string);
+//     char temp;
+//     while (i < length/2) {
+//         temp = string[i];
+//         string[i] = string[length - 1 - i];
+//         string[length - 1 - i] = temp;
+//         i++;
+//     }
+// }
+//
+// void inttostr(char *buffer, int n) {
+//     int i = 0;
+//     bool is_negative = false;
+//     if (n < 0) {
+//         n *= -1;
+//         is_negative = true;
+//     }
+//     while (n > 10) {
+//         buffer[i] = '0' + mod(n, 10);
+//         i++;
+//         n /= 10;
+//     }
+//     buffer[i] = '0' + mod(n, 10); // First digit
+//     i++;
+//     if (is_negative) {
+//         buffer[i] = '-';
+//         i++;
+//     }
+//     buffer[i] = '\0';
+//     strrev(buffer);
+// }
