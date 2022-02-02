@@ -3,6 +3,7 @@
 int main() {
     makeInterrupt21();
     clearScreen();
+
     while (1);
 }
 
@@ -21,11 +22,38 @@ void clearScreen() {
 }
 
 void printString(char *string) {
+    int i = 0, AX = 0;
 
+    // Ulangi proses penulisan karakter hingga ditemukan null terminator
+    while (string[i] != 0x00) {
+        AX = 0x0E00 | string[i];
+        interrupt(0x10, AX, 0x000F, 0, 0);
+        i++;
+    }
 }
 
 void readString(char *string) {
+    char singleCharBuffer;
+    int currentIndex = 0;
+    int AXoutput;
 
+    // Ulangi pembacaan hingga ditemukan karakter '\r' atau carriage return
+    // Tombol enter menghasilkan '\r' dari pembacaan INT 16h
+    do {
+        singleCharBuffer = interrupt(0x16, 0x0000, 0, 0, 0);
+
+        if (singleCharBuffer != '\r') {
+            // Menuliskan karakter ke layar
+            AXoutput = 0x0E00 | singleCharBuffer;
+            interrupt(0x10, AXoutput, 0x000F, 0, 0);
+
+            string[currentIndex] = singleCharBuffer;
+            currentIndex++;
+        }
+        else
+            printString("\r\n");
+
+    } while (singleCharBuffer != '\r');
 }
 
 
