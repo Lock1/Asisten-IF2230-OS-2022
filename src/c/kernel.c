@@ -1,19 +1,14 @@
 #include "header/kernel.h"
 #include "header/filesystem.h"
 #include "header/std_datatype.h"
+#include "header/std_opr.h"
+
 
 int main() {
     makeInterrupt21();
     clearScreen();
 
-    // if (sizeof(struct node_filesystem) == 1024)
-    //     printString("nodes ok");
-    // if (sizeof(struct sector_filesystem) == 512)
-    //     printString("sectorfs ok");
-    // if (sizeof(struct node_entry) == 16)
-    //     printString("node_entry ok");
-
-    while (1);
+    while (true);
 }
 
 void clearScreen() {
@@ -65,6 +60,46 @@ void readString(char *string) {
     } while (singleCharBuffer != '\r');
 }
 
+void readSector(byte *buffer, int sector_number) {
+    int sector_read_count = 0x01;
+    int cylinder, sector;
+    int head, drive;
+
+    cylinder = div(sector_number, 36) << 8; // CL
+    sector   = mod(sector_number, 18) + 1;  // CH
+
+    head  = mod(div(sector_number, 18), 2) << 8; // DH
+    drive = 0x00; // DL
+
+    interrupt(
+        0x13, // Interrupt number
+        0x0200 | sector_read_count, // AX
+        buffer, // BX
+        cylinder | sector, // CX
+        head | drive // DX
+    );
+}
+
+void writeSector(byte *buffer, int sector_number) {
+    int sector_write_count = 0x01;
+    int cylinder, sector;
+    int head, drive;
+
+    cylinder = div(sector_number, 36) << 8; // CL
+    sector   = mod(sector_number, 18) + 1;  // CH
+
+    head  = mod(div(sector_number, 18), 2) << 8; // DH
+    drive = 0x00; // DL
+
+    interrupt(
+        0x13, // Interrupt number
+        0x0300 | sector_write_count, // AX
+        buffer, // BX
+        cylinder | sector, // CX
+        head | drive // DX
+    );
+}
+
 
 
 void handleInterrupt21(int AX, int BX, int CX, int DX) {
@@ -83,14 +118,6 @@ void handleInterrupt21(int AX, int BX, int CX, int DX) {
 
 
 // DEBUG
-// int div(int a, int b) {
-//     return a/b;
-// }
-//
-// int mod(int a, int n) {
-//     return a - n*(a/n);
-// }
-//
 // int strlen(char *string) {
 //     int i = 0;
 //     while (string[i] != '\0')

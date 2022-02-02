@@ -1,5 +1,5 @@
 # Sister 19 - Makefile
-all: diskimage bootloader kernel
+all: diskimage bootloader kernel stdlib
 
 clean:
 	# -- Cleaning output files --
@@ -21,9 +21,14 @@ kernel:
 	# -- Source Compilation --
 	bcc -ansi -c -o out/kernel.o src/c/kernel.c
 	nasm -f as86 src/asm/kernel.asm -o out/kernel_asm.o
-	ld86 -o out/kernel -d out/*.o
+	ld86 -o out/kernel -d out/*.o out/std/*.o
 	dd if=out/kernel of=out/system.img bs=512 conv=notrunc seek=1 status=noxfer
 	# ------------ Compiled kernel stat ------------
 	# Max Kernel Size : 8192 bytes (16 sectors, 1 sector = 512 bytes)
 	@stat --printf="Kernel Size : %s bytes\n" out/kernel
 	# ----------------------------------------------
+
+stdlib:
+	# -- Standard library --
+	@if [ ! -d "out/std" ]; then mkdir out/std; fi
+	bcc -ansi -c -o out/std/std_opr.o src/c/std_opr.c

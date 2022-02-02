@@ -10,8 +10,8 @@ struct map_filesystem {
 
 // Untuk filesystem nodes
 struct node_entry {
-    byte parent_index;
-    byte sector_index;
+    byte parent_node_index;
+    byte sector_entry_index;
     char name[14];
 };
 
@@ -22,7 +22,7 @@ struct node_filesystem {
 
 // Untuk filesystem sector
 struct sector_entry {
-    byte sector_number[16];
+    byte sector_numbers[16];
 };
 
 struct sector_filesystem {
