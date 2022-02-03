@@ -6,38 +6,20 @@
 
 int main() {
     struct file_metadata data;
-    byte ok[512];
+    byte ok[1024];
     enum fs_retcode ret;
     fillKernelMap();
     makeInterrupt21();
     clearScreen();
 
+    clear(ok, 1024);
     readSector(ok, 0);
+    readSector(ok+512, 1);
     data.buffer = ok;
     data.node_name = "test";
     data.parent_index = FS_NODE_P_IDX_ROOT;
-    data.filesize = 512;
-    printString(ok);
+    data.filesize = 740;
     write(&data, &ret);
-
-    printString("exec");
-    switch (ret) {
-        case FS_W_INVALID_FOLDER:
-            printString("inv fold");
-            break;
-        case FS_W_MAXIMUM_SECTOR_ENTRY:
-            printString("inv sector");
-            break;
-        case FS_W_MAXIMUM_NODE_ENTRY:
-            printString("inv node");
-            break;
-        case FS_W_FILE_ALREADY_EXIST:
-            printString("exist");
-            break;
-        case FS_SUCCESS:
-            printString("what");
-            break;
-    }
 
     while (true);
 }
@@ -246,7 +228,7 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
           && enough_empty_space) {
 
         node_fs_buffer.nodes[node_write_index].parent_node_index = metadata->parent_index; // Penulisan byte "P"
-        memcpy(node_fs_buffer.nodes[node_write_index].name, metadata->node_name, 14);      // Penulisan nama node
+        strcpy(node_fs_buffer.nodes[node_write_index].name, metadata->node_name);          // Penulisan nama node
 
         // Menuliskan folder / file
         if (!writing_file)

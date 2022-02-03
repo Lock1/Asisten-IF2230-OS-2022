@@ -27,3 +27,17 @@ bool strcmp(char *s1, char *s2) {
 
     return 1;
 }
+
+void strcpy(byte *dst, byte *src) {
+    unsigned int i = 0;
+    while (src[i] != '\0') {
+        dst[i] = src[i];
+        i++;
+    }
+}
+
+void clear(byte *ptr, unsigned int n) {
+    unsigned int i;
+    for (i = 0; i < n; i++)
+        ptr[i] = 0x00;
+}
