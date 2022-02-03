@@ -49,7 +49,8 @@ struct file_metadata {
 
 // Untuk error code write & read
 enum fs_retcode {
-    FS_SUCCESS = 0,
+    FS_UNKNOWN_ERROR,
+    FS_SUCCESS,
     FS_R_NODE_NOT_FOUND,
     FS_R_TYPE_IS_FOLDER,
 

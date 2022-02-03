@@ -151,7 +151,7 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
     // Tahap 2 : Pengecekan parent index
     invalid_parent_index = false;
     if (metadata->parent_index != FS_NODE_P_IDX_ROOT) {
-        if (node_fs_buffer.nodes[metadata->parent_index].sector_entry_index == FS_NODE_S_IDX_FOLDER)
+        if (node_fs_buffer.nodes[metadata->parent_index].sector_entry_index != FS_NODE_S_IDX_FOLDER)
             invalid_parent_index = true;
     }
 
@@ -207,7 +207,6 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
     else
         sector_write_index_found = true;
 
-
     // Tahap 6 : Penulisan
     if (node_write_index_found
           && sector_write_index_found
@@ -250,9 +249,11 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
             writeSector(&(map_fs_buffer), FS_MAP_SECTOR_NUMBER);
             writeSector(&(sector_fs_buffer), FS_SECTOR_SECTOR_NUMBER);
         }
+
+        *return_code = FS_SUCCESS;
     }
 
-    // Tahap 7 : Return code
+    // Tahap 7 : Return code error
     if (!unique_filename)
         *return_code = FS_W_FILE_ALREADY_EXIST;
     else if (!node_write_index_found)
@@ -261,8 +262,8 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
         *return_code = FS_W_MAXIMUM_SECTOR_ENTRY;
     else if (invalid_parent_index)
         *return_code = FS_W_INVALID_FOLDER;
-    else
-        *return_code = FS_SUCCESS;
+    else if (*return_code != FS_SUCCESS)
+        *return_code = FS_UNKNOWN_ERROR;
 }
 
 void read(struct file_metadata *metadata, enum fs_retcode *return_code) {
@@ -322,6 +323,7 @@ void shell() {
     struct node_filesystem node_fs_buffer;
     char input_buffer[128], dir_str_buffer[128];
     byte current_directory = FS_NODE_P_IDX_ROOT;
+    int i;
 
     readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
     readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
@@ -329,22 +331,70 @@ void shell() {
     while (true) {
         clear(input_buffer, 128);
         printString("OS@IF2230:");
-        dir_string_builder(dir_str_buffer, node_fs_buffer, current_directory);
+        dir_string_builder(dir_str_buffer, &node_fs_buffer, current_directory);
         printString(dir_str_buffer);
         printString("$");
         readString(input_buffer);
 
-        if (!strcmp(input_buffer, "cd")) {
+        for (i = 0; i < 128; i++) {
+            if (input_buffer[i] == '\r'
+                || input_buffer[i] == '\n'
+                || input_buffer[i] == ' ')
+                input_buffer[i] = '\0';
+        }
 
+        if (!strcmp(input_buffer, "cd")) {
+            bool folder_found = false;
+            for (i = 0; i < 64 && !folder_found; i++) {
+                if (node_fs_buffer.nodes[i].parent_node_index == current_directory           // Pastikan pada curdir sama
+                      && node_fs_buffer.nodes[i].sector_entry_index == FS_NODE_S_IDX_FOLDER  // Pastikan folder bukan file
+                      && !strcmp(input_buffer + 3, node_fs_buffer.nodes[i].name)) {
+                    current_directory = i;
+                    folder_found = true;
+                }
+            }
+
+            if (!folder_found)
+                printString("cd: folder not found\r\n");
         }
         else if (!strcmp(input_buffer, "ls")) {
-
+            for (i = 0; i < 64; i++) {
+                if (node_fs_buffer.nodes[i].parent_node_index == current_directory) {
+                    printString(node_fs_buffer.nodes[i].name);
+                    printString(" ");
+                }
+            }
+            printString("\r\n");
         }
         else if (!strcmp(input_buffer, "cat")) {
+            struct file_metadata file_target;
+            enum fs_retcode ret_code;
+            byte cat_buffer[2048];
 
+            clear(cat_buffer, 2048);
+            file_target.node_name    = input_buffer + 4;
+            file_target.parent_index = current_directory;
+            read(&file_target, &ret_code);
+            if (ret_code == FS_SUCCESS)
+                printString(cat_buffer);
+            else
+                printString("cat: error\r\n");
         }
         else if (!strcmp(input_buffer, "mkdir")) {
+            struct file_metadata new_folder;
+            enum fs_retcode ret_code;
 
+            new_folder.node_name    = input_buffer + 6;
+            new_folder.filesize     = 0;
+            new_folder.parent_index = current_directory;
+            write(&new_folder, &ret_code);
+            if (ret_code == FS_SUCCESS)
+                printString("mkdir: folder created\r\n");
+            else
+                printString("mkdir: error\r\n");
+
+            readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
+            readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
         }
         else
             printString("Unknown command\r\n");
