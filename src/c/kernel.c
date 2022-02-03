@@ -5,21 +5,9 @@
 
 
 int main() {
-    struct file_metadata data;
-    byte ok[1024];
-    enum fs_retcode ret;
     fillKernelMap();
     makeInterrupt21();
     clearScreen();
-
-    clear(ok, 1024);
-    readSector(ok, 0);
-    readSector(ok+512, 1);
-    data.buffer = ok;
-    data.node_name = "test";
-    data.parent_index = FS_NODE_P_IDX_ROOT;
-    data.filesize = 740;
-    write(&data, &ret);
 
     while (true);
 }
@@ -283,7 +271,6 @@ void read(struct file_metadata *metadata, enum fs_retcode *return_code) {
     bool filename_match_found;
     int i;
 
-    // TODO : Test garbage or not
     readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
     readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
 
@@ -334,12 +321,27 @@ void read(struct file_metadata *metadata, enum fs_retcode *return_code) {
 
 
 void handleInterrupt21(int AX, int BX, int CX, int DX) {
-    switch (AX) {
+    byte AL, AH;
+    AL = (char) (AX);
+    AH = (char) (AX >> 8);
+    switch (AL) {
         case 0x0:
             printString(BX);
             break;
         case 0x1:
             readString(BX);
+            break;
+        case 0x2:
+            readSector(BX, CX);
+            break;
+        case 0x3:
+            writeSector(BX, CX);
+            break;
+        case 0x4:
+            read(BX, CX);
+            break;
+        case 0x5:
+            write(BX, CX);
             break;
         default:
             printString("Invalid Interrupt");
