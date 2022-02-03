@@ -186,11 +186,10 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
     }
 
     // Tahap 3 : Pengecekan tipe penulisan
-    writing_file = false;
-    for (i = 0; i < 512; i++) {
-        if (metadata->buffer[i] != 0x00)
-            writing_file = true;
-    }
+    if (metadata->filesize != 0)
+        writing_file = true;
+    else
+        writing_file = false;
 
     // Tahap 4 : Pengecekan ukuran untuk file
     if (writing_file) {
