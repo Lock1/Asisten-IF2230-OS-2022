@@ -316,7 +316,27 @@ void read(struct file_metadata *metadata, enum fs_retcode *return_code) {
 }
 
 void dir_string_builder(char *output, struct node_filesystem *node_table, byte current_dir) {
-    // >:(
+    int parent_tree_height;
+    byte iter_dir;
+    byte parent_tree[64];
+    unsigned int output_idx = 1;
+    int i;
+
+    iter_dir = current_dir;
+    parent_tree_height = 0;
+    while (iter_dir != FS_NODE_P_IDX_ROOT) {
+        parent_tree[parent_tree_height] = iter_dir;
+        parent_tree_height++;
+        iter_dir = node_table->nodes[iter_dir].parent_node_index;
+    }
+
+    output[0] = '/';
+    for (i = parent_tree_height - 1; i >= 0; i--) {
+        strcpy(output + output_idx, node_table->nodes[parent_tree[i]].name);
+        output_idx += strlen(node_table->nodes[parent_tree[i]].name);
+        output[output_idx] = '/';
+        output_idx++;
+    }
 }
 
 void shell() {
@@ -330,6 +350,7 @@ void shell() {
 
     while (true) {
         clear(input_buffer, 128);
+        clear(dir_str_buffer, 128);
         printString("OS@IF2230:");
         dir_string_builder(dir_str_buffer, &node_fs_buffer, current_directory);
         printString(dir_str_buffer);
@@ -344,18 +365,24 @@ void shell() {
         }
 
         if (!strcmp(input_buffer, "cd")) {
-            bool folder_found = false;
-            for (i = 0; i < 64 && !folder_found; i++) {
-                if (node_fs_buffer.nodes[i].parent_node_index == current_directory           // Pastikan pada curdir sama
-                      && node_fs_buffer.nodes[i].sector_entry_index == FS_NODE_S_IDX_FOLDER  // Pastikan folder bukan file
-                      && !strcmp(input_buffer + 3, node_fs_buffer.nodes[i].name)) {
-                    current_directory = i;
-                    folder_found = true;
+            if (!strcmp(input_buffer + 3, "."))
+                current_directory = FS_NODE_P_IDX_ROOT;
+            else if (!strcmp(input_buffer + 3, "..") && current_directory != FS_NODE_P_IDX_ROOT)
+                current_directory = node_fs_buffer.nodes[current_directory].parent_node_index;
+            else {
+                bool folder_found = false;
+                for (i = 0; i < 64 && !folder_found; i++) {
+                    if (node_fs_buffer.nodes[i].parent_node_index == current_directory           // Pastikan pada curdir sama
+                          && node_fs_buffer.nodes[i].sector_entry_index == FS_NODE_S_IDX_FOLDER  // Pastikan folder bukan file
+                          && !strcmp(input_buffer + 3, node_fs_buffer.nodes[i].name)) {
+                            current_directory = i;
+                            folder_found = true;
+                    }
                 }
+                if (!folder_found)
+                    printString("cd: folder not found\r\n");
             }
 
-            if (!folder_found)
-                printString("cd: folder not found\r\n");
         }
         else if (!strcmp(input_buffer, "ls")) {
             for (i = 0; i < 64; i++) {
