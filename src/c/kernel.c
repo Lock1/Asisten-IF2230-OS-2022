@@ -5,10 +5,52 @@
 
 
 int main() {
+    struct file_metadata data;
+    byte ok[512];
+    enum fs_retcode ret;
+    fillKernelMap();
     makeInterrupt21();
     clearScreen();
 
+    readSector(ok, 0);
+    data.buffer = ok;
+    data.node_name = "test";
+    data.parent_index = FS_NODE_P_IDX_ROOT;
+    data.filesize = 512;
+    printString(ok);
+    write(&data, &ret);
+
+    printString("exec");
+    switch (ret) {
+        case FS_W_INVALID_FOLDER:
+            printString("inv fold");
+            break;
+        case FS_W_MAXIMUM_SECTOR_ENTRY:
+            printString("inv sector");
+            break;
+        case FS_W_MAXIMUM_NODE_ENTRY:
+            printString("inv node");
+            break;
+        case FS_W_FILE_ALREADY_EXIST:
+            printString("exist");
+            break;
+        case FS_SUCCESS:
+            printString("what");
+            break;
+    }
+
     while (true);
+}
+
+void fillKernelMap() {
+    struct map_filesystem map_fs_buffer;
+    int i;
+
+    readSector(&map_fs_buffer, FS_MAP_SECTOR_NUMBER);
+    for (i = 0; i < 16; i++)
+        map_fs_buffer.is_filled[i] = true;
+
+    writeSector(&map_fs_buffer, FS_MAP_SECTOR_NUMBER);
 }
 
 void clearScreen() {
@@ -219,11 +261,12 @@ void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
             for (i = 0; i < 256 && !writing_completed; i++) {
                 if (!map_fs_buffer.is_filled[i]) {
                     map_fs_buffer.is_filled[i] = true;
+                    written_filesize += 512;
 
                     sector_fs_buffer.sector_list[sector_write_index].sector_numbers[j] = i;
-                    j++;
 
                     writeSector(metadata->buffer + j*512, i);
+                    j++;
                 }
 
                 if (written_filesize >= metadata->filesize)
