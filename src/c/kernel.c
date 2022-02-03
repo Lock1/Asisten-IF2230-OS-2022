@@ -60,6 +60,8 @@ void readString(char *string) {
     } while (singleCharBuffer != '\r');
 }
 
+
+
 void readSector(byte *buffer, int sector_number) {
     int sector_read_count = 0x01;
     int cylinder, sector;
@@ -99,6 +101,61 @@ void writeSector(byte *buffer, int sector_number) {
         head | drive // DX
     );
 }
+
+void write(byte *buffer, char *node_name, enum fs_retcode *return_code, byte parent_index) {
+
+}
+
+void read(byte *buffer, char *node_name, enum fs_retcode *return_code, byte parent_index) {
+    struct node_filesystem node_fs_buffer;
+    struct node_entry node_buffer;
+    bool filename_match_found;
+    int i;
+
+    // TODO : Test garbage or not
+    readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
+    readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
+
+    // Iterasi seluruh node
+    filename_match_found = false;
+    for (i = 0; i < 64 && !filename_match_found; i++) {
+        memcpy(node_buffer, node_fs_buffer.nodes[i], sizeof(struct node_entry));
+
+        if (node_buffer.parent_node_index == parent_index && !strcmp(node_buffer.name, node_name))
+            filename_match_found = true;
+    }
+
+    // Fetch data atau exit code
+    if (filename_match_found) {
+        if (node_buffer.sector_entry_index == FS_NODE_S_IDX_FOLDER)
+            *return_code = FS_R_TYPE_IS_FOLDER;
+        else {
+            struct sector_filesystem sector_fs_buffer;
+            struct sector_entry sector_entry_buffer;
+            readSector(&(sector_fs_buffer.sector_list[0]), FS_SECTOR_SECTOR_NUMBER);
+
+            memcpy(
+                sector_entry_buffer,
+                sector_fs_buffer.sector_list[node_buffer.sector_entry_index],
+                sizeof(struct sector_entry)
+                );
+
+            for (i = 0; i < 16; i++) {
+                byte sector_number_to_read = sector_entry_buffer.sector_numbers[i];
+                if (sector_number_to_read != 0x00)
+                    readSector(buffer + i*512, sector_number_to_read);
+                else
+                    break; // Sector_number == 0 -> Tidak valid, selesaikan pembacaan
+            }
+        }
+    }
+    else
+        *return_code = FS_R_NODE_NOT_FOUND;
+}
+
+
+
+
 
 
 

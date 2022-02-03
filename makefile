@@ -1,5 +1,5 @@
 # Sister 19 - Makefile
-all: diskimage bootloader kernel stdlib
+all: diskimage bootloader stdlib kernel
 
 clean:
 	# -- Cleaning output files --
@@ -32,3 +32,4 @@ stdlib:
 	# -- Standard library --
 	@if [ ! -d "out/std" ]; then mkdir out/std; fi
 	bcc -ansi -c -o out/std/std_opr.o src/c/std_opr.c
+	bcc -ansi -c -o out/std/std_lib.o src/c/std_lib.c
