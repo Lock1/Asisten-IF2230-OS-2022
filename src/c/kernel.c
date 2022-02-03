@@ -103,6 +103,63 @@ void writeSector(byte *buffer, int sector_number) {
 }
 
 void write(byte *buffer, char *node_name, enum fs_retcode *return_code, byte parent_index) {
+    struct node_filesystem node_fs_buffer;
+    struct node_entry node_buffer;
+    bool unique_filename, write_index_found;
+    bool writing_file;
+    bool invalid_parent_index;
+    int write_index;
+    int i;
+
+    // Tahap 1 : Pengecekan pada filesystem node
+    readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
+    readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
+
+    unique_filename   = true;
+    write_index_found = false;
+    for (i = 0; i < 64 && unique_filename; i++) {
+        memcpy(node_buffer, node_fs_buffer.nodes[i], sizeof(struct node_entry));
+
+        // Cari dan simpan index yang berisikan node kosong pada filesystem node
+        if (node_buffer.sector_entry_index == 0x00
+              && node_buffer.parent_node_index == 0x00
+              && !write_index_found) {
+            write_index       = i;
+            write_index_found = true;
+        }
+
+        // Validasi nama node
+        if (node_buffer.parent_node_index == parent_index && !strcmp(node_buffer.name, node_name))
+            unique_filename = false;
+    }
+
+    // Tahap 1.5 : Pengecekan parent index (Bonus : Edge case dapat menulis file dalam file)
+    invalid_parent_index = false;
+    if (parent_index != FS_NODE_P_IDX_ROOT) {
+        if (node_fs_buffer.nodes[parent_index].sector_entry_index == FS_NODE_S_IDX_FOLDER)
+            invalid_parent_index = true;
+    }
+
+    // Tahap 2 : Pengecekan tipe penulisan
+    writing_file = false;
+    for (i = 0; i < 512; i++) {
+        if (buffer[i] != 0x00)
+            writing_file = true;
+    }
+
+    // Tahap 3 : Penulisan
+    if (write_index_found && !invalid_parent_index && unique_filename) {
+        node_fs_buffer.nodes[write_index].parent_node_index = parent_index; // Penulisan byte "P"
+        memcpy(node_fs_buffer.nodes[write_index].name, node_name, 14);      // Penulisan nama node
+
+        // Menuliskan folder / file
+        if (!writing_file)
+            node_fs_buffer.nodes[write_index].sector_entry_index = FS_NODE_S_IDX_FOLDER;
+        else {
+            
+        }
+
+    }
 
 }
 
@@ -121,6 +178,7 @@ void read(byte *buffer, char *node_name, enum fs_retcode *return_code, byte pare
     for (i = 0; i < 64 && !filename_match_found; i++) {
         memcpy(node_buffer, node_fs_buffer.nodes[i], sizeof(struct node_entry));
 
+        // Pastikan parent index dan nama sama
         if (node_buffer.parent_node_index == parent_index && !strcmp(node_buffer.name, node_name))
             filename_match_found = true;
     }

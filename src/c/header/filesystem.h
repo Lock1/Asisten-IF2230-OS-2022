@@ -39,7 +39,7 @@ struct sector_filesystem {
 
 // Untuk error code write & read
 enum fs_retcode {
-    FS_SUCCESS,
+    FS_SUCCESS = 0,
     FS_R_NODE_NOT_FOUND,
     FS_R_TYPE_IS_FOLDER,
 
