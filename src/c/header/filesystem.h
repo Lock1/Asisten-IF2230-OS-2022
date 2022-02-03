@@ -37,6 +37,16 @@ struct sector_filesystem {
 };
 
 
+// Struktur data untuk read / write
+struct file_metadata {
+    byte *buffer;
+    char *node_name;
+    byte parent_index;
+    unsigned int filesize;
+};
+
+
+
 // Untuk error code write & read
 enum fs_retcode {
     FS_SUCCESS = 0,

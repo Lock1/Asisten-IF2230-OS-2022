@@ -102,68 +102,158 @@ void writeSector(byte *buffer, int sector_number) {
     );
 }
 
-void write(byte *buffer, char *node_name, enum fs_retcode *return_code, byte parent_index) {
+void write(struct file_metadata *metadata, enum fs_retcode *return_code) {
     struct node_filesystem node_fs_buffer;
+    struct map_filesystem map_fs_buffer;
+    struct sector_filesystem sector_fs_buffer;
     struct node_entry node_buffer;
-    bool unique_filename, write_index_found;
-    bool writing_file;
-    bool invalid_parent_index;
-    int write_index;
+    bool node_write_index_found, sector_write_index_found;
+    bool writing_file, enough_empty_space;
+    bool unique_filename, invalid_parent_index;
+    unsigned int node_write_index, sector_write_index;
+    unsigned int empty_space_size;
     int i;
 
     // Tahap 1 : Pengecekan pada filesystem node
     readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
     readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
 
-    unique_filename   = true;
-    write_index_found = false;
+    unique_filename        = true;
+    node_write_index_found = false;
     for (i = 0; i < 64 && unique_filename; i++) {
-        memcpy(node_buffer, node_fs_buffer.nodes[i], sizeof(struct node_entry));
+        memcpy(&node_buffer, &(node_fs_buffer.nodes[i]), sizeof(struct node_entry));
 
         // Cari dan simpan index yang berisikan node kosong pada filesystem node
         if (node_buffer.sector_entry_index == 0x00
               && node_buffer.parent_node_index == 0x00
-              && !write_index_found) {
-            write_index       = i;
-            write_index_found = true;
+              && !node_write_index_found) {
+            node_write_index  = i;
+            node_write_index_found = true;
         }
 
         // Validasi nama node
-        if (node_buffer.parent_node_index == parent_index && !strcmp(node_buffer.name, node_name))
+        if (node_buffer.parent_node_index == metadata->parent_index && !strcmp(node_buffer.name, metadata->node_name))
             unique_filename = false;
     }
 
-    // Tahap 1.5 : Pengecekan parent index (Bonus : Edge case dapat menulis file dalam file)
+    // Tahap 2 : Pengecekan parent index
     invalid_parent_index = false;
-    if (parent_index != FS_NODE_P_IDX_ROOT) {
-        if (node_fs_buffer.nodes[parent_index].sector_entry_index == FS_NODE_S_IDX_FOLDER)
+    if (metadata->parent_index != FS_NODE_P_IDX_ROOT) {
+        if (node_fs_buffer.nodes[metadata->parent_index].sector_entry_index == FS_NODE_S_IDX_FOLDER)
             invalid_parent_index = true;
     }
 
-    // Tahap 2 : Pengecekan tipe penulisan
+    // Tahap 3 : Pengecekan tipe penulisan
     writing_file = false;
     for (i = 0; i < 512; i++) {
-        if (buffer[i] != 0x00)
+        if (metadata->buffer[i] != 0x00)
             writing_file = true;
     }
 
-    // Tahap 3 : Penulisan
-    if (write_index_found && !invalid_parent_index && unique_filename) {
-        node_fs_buffer.nodes[write_index].parent_node_index = parent_index; // Penulisan byte "P"
-        memcpy(node_fs_buffer.nodes[write_index].name, node_name, 14);      // Penulisan nama node
+    // Tahap 4 : Pengecekan ukuran untuk file
+    if (writing_file) {
+        readSector(map_fs_buffer.is_filled, FS_MAP_SECTOR_NUMBER);
+        enough_empty_space = false;
+        empty_space_size   = 0;
+
+        // Catatan : Meskipun map dapat digunakan sebagai penanda 512 sektor,
+        //       hanya 0-255 dapat diakses dengan 1 byte sector_number pada sector
+        for (i = 0; i < 256 && !enough_empty_space; i++) {
+            if (!map_fs_buffer.is_filled[i])
+                empty_space_size += 512;
+
+            if (metadata->filesize <= empty_space_size)
+                enough_empty_space = true;
+        }
+    }
+    else
+        enough_empty_space = true; // Jika folder abaikan tahap ini
+
+    // Tahap 5 : Pengecekan filesystem sector
+    if (writing_file) {
+        readSector(sector_fs_buffer.sector_list, FS_SECTOR_SECTOR_NUMBER);
+        sector_write_index_found = false;
+
+        for (i = 0; i < 64 && !sector_write_index_found; i++) {
+            struct sector_entry sector_entry_buffer;
+            bool is_sector_entry_empty;
+            int j;
+
+            memcpy(&sector_entry_buffer, &(sector_fs_buffer.sector_list[i]), sizeof(struct sector_entry));
+
+            is_sector_entry_empty = true;
+            for (j = 0; j < 16; j++) {
+                if (sector_entry_buffer.sector_numbers[j] != 0x00)
+                    is_sector_entry_empty = false;
+            }
+
+            if (is_sector_entry_empty) {
+                sector_write_index       = i;
+                sector_write_index_found = true;
+            }
+        }
+    }
+    else
+        sector_write_index_found = true;
+
+
+    // Tahap 6 : Penulisan
+    if (node_write_index_found
+          && sector_write_index_found
+          && unique_filename
+          && !invalid_parent_index
+          && enough_empty_space) {
+
+        node_fs_buffer.nodes[node_write_index].parent_node_index = metadata->parent_index; // Penulisan byte "P"
+        memcpy(node_fs_buffer.nodes[node_write_index].name, metadata->node_name, 14);      // Penulisan nama node
 
         // Menuliskan folder / file
         if (!writing_file)
-            node_fs_buffer.nodes[write_index].sector_entry_index = FS_NODE_S_IDX_FOLDER;
+            node_fs_buffer.nodes[node_write_index].sector_entry_index = FS_NODE_S_IDX_FOLDER;
         else {
-            
+            bool writing_completed = false;
+            unsigned int written_filesize = 0;
+            int j = 0;
+            node_fs_buffer.nodes[node_write_index].sector_entry_index = sector_write_index;
+
+            for (i = 0; i < 256 && !writing_completed; i++) {
+                if (!map_fs_buffer.is_filled[i]) {
+                    map_fs_buffer.is_filled[i] = true;
+
+                    sector_fs_buffer.sector_list[sector_write_index].sector_numbers[j] = i;
+                    j++;
+
+                    writeSector(metadata->buffer + j*512, i);
+                }
+
+                if (written_filesize >= metadata->filesize)
+                    writing_completed = true;
+            }
         }
 
+        // Update filesystem
+        writeSector(&(node_fs_buffer.nodes[0]), FS_NODE_SECTOR_NUMBER);
+        writeSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
+        if (writing_file) {
+            writeSector(&(map_fs_buffer), FS_MAP_SECTOR_NUMBER);
+            writeSector(&(sector_fs_buffer), FS_SECTOR_SECTOR_NUMBER);
+        }
     }
 
+    // Tahap 7 : Return code
+    if (!unique_filename)
+        *return_code = FS_W_FILE_ALREADY_EXIST;
+    else if (!node_write_index_found)
+        *return_code = FS_W_MAXIMUM_NODE_ENTRY;
+    else if (writing_file && !enough_empty_space)
+        *return_code = FS_W_MAXIMUM_SECTOR_ENTRY;
+    else if (invalid_parent_index)
+        *return_code = FS_W_INVALID_FOLDER;
+    else
+        *return_code = FS_SUCCESS;
 }
 
-void read(byte *buffer, char *node_name, enum fs_retcode *return_code, byte parent_index) {
+void read(struct file_metadata *metadata, enum fs_retcode *return_code) {
     struct node_filesystem node_fs_buffer;
     struct node_entry node_buffer;
     bool filename_match_found;
@@ -176,10 +266,10 @@ void read(byte *buffer, char *node_name, enum fs_retcode *return_code, byte pare
     // Iterasi seluruh node
     filename_match_found = false;
     for (i = 0; i < 64 && !filename_match_found; i++) {
-        memcpy(node_buffer, node_fs_buffer.nodes[i], sizeof(struct node_entry));
+        memcpy(&node_buffer, &(node_fs_buffer.nodes[i]), sizeof(struct node_entry));
 
         // Pastikan parent index dan nama sama
-        if (node_buffer.parent_node_index == parent_index && !strcmp(node_buffer.name, node_name))
+        if (node_buffer.parent_node_index == metadata->parent_index && !strcmp(node_buffer.name, metadata->node_name))
             filename_match_found = true;
     }
 
@@ -193,18 +283,20 @@ void read(byte *buffer, char *node_name, enum fs_retcode *return_code, byte pare
             readSector(&(sector_fs_buffer.sector_list[0]), FS_SECTOR_SECTOR_NUMBER);
 
             memcpy(
-                sector_entry_buffer,
-                sector_fs_buffer.sector_list[node_buffer.sector_entry_index],
+                &sector_entry_buffer,
+                &(sector_fs_buffer.sector_list[node_buffer.sector_entry_index]),
                 sizeof(struct sector_entry)
                 );
 
             for (i = 0; i < 16; i++) {
                 byte sector_number_to_read = sector_entry_buffer.sector_numbers[i];
                 if (sector_number_to_read != 0x00)
-                    readSector(buffer + i*512, sector_number_to_read);
+                    readSector(metadata->buffer + i*512, sector_number_to_read);
                 else
                     break; // Sector_number == 0 -> Tidak valid, selesaikan pembacaan
             }
+
+            *return_code = FS_SUCCESS;
         }
     }
     else
