@@ -9,7 +9,7 @@ int main() {
     makeInterrupt21();
     clearScreen();
 
-    while (true);
+    shell();
 }
 
 void fillKernelMap() {
@@ -314,9 +314,42 @@ void read(struct file_metadata *metadata, enum fs_retcode *return_code) {
         *return_code = FS_R_NODE_NOT_FOUND;
 }
 
+void dir_string_builder(char *output, struct node_filesystem *node_table, byte current_dir) {
+    // >:(
+}
 
+void shell() {
+    struct node_filesystem node_fs_buffer;
+    char input_buffer[128], dir_str_buffer[128];
+    byte current_directory = FS_NODE_P_IDX_ROOT;
 
+    readSector(&(node_fs_buffer.nodes[0]),  FS_NODE_SECTOR_NUMBER);
+    readSector(&(node_fs_buffer.nodes[32]), FS_NODE_SECTOR_NUMBER + 1);
 
+    while (true) {
+        clear(input_buffer, 128);
+        printString("OS@IF2230:");
+        dir_string_builder(dir_str_buffer, node_fs_buffer, current_directory);
+        printString(dir_str_buffer);
+        printString("$");
+        readString(input_buffer);
+
+        if (!strcmp(input_buffer, "cd")) {
+
+        }
+        else if (!strcmp(input_buffer, "ls")) {
+
+        }
+        else if (!strcmp(input_buffer, "cat")) {
+
+        }
+        else if (!strcmp(input_buffer, "mkdir")) {
+
+        }
+        else
+            printString("Unknown command\r\n");
+    }
+}
 
 
 
@@ -347,46 +380,3 @@ void handleInterrupt21(int AX, int BX, int CX, int DX) {
             printString("Invalid Interrupt");
     }
 }
-
-
-
-// DEBUG
-// int strlen(char *string) {
-//     int i = 0;
-//     while (string[i] != '\0')
-//         i++;
-//     return i;
-// }
-//
-// void strrev(char *string) {
-//     int i = 0, length = strlen(string);
-//     char temp;
-//     while (i < length/2) {
-//         temp = string[i];
-//         string[i] = string[length - 1 - i];
-//         string[length - 1 - i] = temp;
-//         i++;
-//     }
-// }
-//
-// void inttostr(char *buffer, int n) {
-//     int i = 0;
-//     bool is_negative = false;
-//     if (n < 0) {
-//         n *= -1;
-//         is_negative = true;
-//     }
-//     while (n > 10) {
-//         buffer[i] = '0' + mod(n, 10);
-//         i++;
-//         n /= 10;
-//     }
-//     buffer[i] = '0' + mod(n, 10); // First digit
-//     i++;
-//     if (is_negative) {
-//         buffer[i] = '-';
-//         i++;
-//     }
-//     buffer[i] = '\0';
-//     strrev(buffer);
-// }
