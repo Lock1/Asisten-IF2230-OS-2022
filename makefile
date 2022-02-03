@@ -1,4 +1,4 @@
-# Sister 19 - Makefile
+# Makefile
 all: diskimage bootloader stdlib kernel
 
 clean:

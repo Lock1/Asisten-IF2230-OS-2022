@@ -1,5 +1,5 @@
-# Sister 19 - Makefile
-all: diskimage bootloader kernel
+# Makefile
+all: diskimage bootloader stdlib kernel
 
 # Recipes
 diskimage:
@@ -10,3 +10,6 @@ bootloader:
 
 kernel:
 	# TODO : Tambahkan untuk pembuatan kernel
+
+stdlib:
+	# TODO : Tambahkan untuk pembuatan operasi umum
